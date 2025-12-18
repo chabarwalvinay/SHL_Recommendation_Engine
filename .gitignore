@@ -1,0 +1,45 @@
+# ================================
+# Secrets
+# ================================
+.env
+
+# ================================
+# Python
+# ================================
+__pycache__/
+*.py[cod]
+
+# ================================
+# Virtual Environment
+# ================================
+venv/
+
+# ================================
+# OS / Editor
+# ================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ================================
+# Ignore ALL data by default
+# ================================
+data/*
+
+# ================================
+# Allow ONLY required data files
+# ================================
+!data/index/
+!data/index/id_map.json
+
+!data/processed/
+!data/processed/shl_assessments.json
+
+!data/train_test_data/
+
+# ================================
+# Junk / Experiments
+# ================================
+zzz_gold_in_trash/
+x_test.py
