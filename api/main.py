@@ -8,6 +8,9 @@ from api.schemas import RecommendResponse
 
 import json
 from pathlib import Path
+import os
+
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
 
 app = FastAPI(title="SHL Recommendation API")

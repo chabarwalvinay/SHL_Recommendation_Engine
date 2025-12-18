@@ -26,7 +26,7 @@ ASSESSMENTS_FILE = PROCESSED_DIR / "shl_assessments.json"
 
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-TOP_K = 50  # Phase-2 contract with Phase-3
+TOP_K = 50
 TOP_K_VECTOR = 100
 TOP_K_BM25 = 100
 
@@ -35,37 +35,68 @@ BM25_WEIGHT = 0.3
 
 
 # =========================================================
-# LOAD ARTIFACTS
+# LAZY GLOBALS (CRITICAL FOR MEMORY)
 # =========================================================
-print("🔹 Loading Phase-2 retrieval artifacts...")
-
-embeddings = np.load(EMBEDDINGS_FILE)
-
-with open(ID_MAP_FILE, "r", encoding="utf-8") as f:
-    id_map = json.load(f)  # index → assessment_id
-
-with open(META_FILE, "r", encoding="utf-8") as f:
-    meta = json.load(f)
-
-with open(ASSESSMENTS_FILE, "r", encoding="utf-8") as f:
-    assessments = json.load(f)
-
-# Build lookup: assessment_id → canonical object
-assessment_lookup = {a["assessment_id"]: a for a in assessments}
-
-assert embeddings.shape[0] == len(id_map), "Index out of sync"
+_embeddings = None
+_faiss_index = None
+_bm25 = None
+_model = None
+_id_map = None
+_assessment_lookup = None
 
 
 # =========================================================
-# FAISS INDEX (COSINE)
+# LOAD STATIC FILES (LIGHTWEIGHT)
 # =========================================================
-dim = embeddings.shape[1]
-faiss_index = faiss.IndexFlatIP(dim)
-faiss_index.add(embeddings)
+def load_metadata():
+    global _id_map, _assessment_lookup
+
+    if _id_map is None:
+        with open(ID_MAP_FILE, "r", encoding="utf-8") as f:
+            _id_map = json.load(f)
+
+    if _assessment_lookup is None:
+        with open(ASSESSMENTS_FILE, "r", encoding="utf-8") as f:
+            assessments = json.load(f)
+        _assessment_lookup = {a["assessment_id"]: a for a in assessments}
+
+    return _id_map, _assessment_lookup
 
 
 # =========================================================
-# BM25 INDEX (ON EMBEDDING TEXT FIELDS)
+# EMBEDDINGS
+# =========================================================
+def get_embeddings():
+    global _embeddings
+
+    if _embeddings is None:
+        print("🔹 Loading embeddings.npy")
+        _embeddings = np.load(EMBEDDINGS_FILE)
+
+    return _embeddings
+
+
+# =========================================================
+# FAISS INDEX (COSINE / IP)
+# =========================================================
+def get_faiss_index():
+    global _faiss_index
+
+    if _faiss_index is None:
+        embeddings = get_embeddings()
+        dim = embeddings.shape[1]
+
+        print("🔹 Building FAISS index")
+        index = faiss.IndexFlatIP(dim)
+        index.add(embeddings)
+
+        _faiss_index = index
+
+    return _faiss_index
+
+
+# =========================================================
+# BM25 INDEX
 # =========================================================
 def bm25_text(a: Dict) -> str:
     return " ".join(
@@ -79,17 +110,35 @@ def bm25_text(a: Dict) -> str:
     ).lower()
 
 
-bm25_corpus = [
-    bm25_text(assessment_lookup[id_map[str(i)]]).split() for i in range(len(id_map))
-]
+def get_bm25():
+    global _bm25
 
-bm25 = BM25Okapi(bm25_corpus)
+    if _bm25 is None:
+        print("🔹 Building BM25 index")
+
+        id_map, assessment_lookup = load_metadata()
+
+        corpus = [
+            bm25_text(assessment_lookup[id_map[str(i)]]).split()
+            for i in range(len(id_map))
+        ]
+
+        _bm25 = BM25Okapi(corpus)
+
+    return _bm25
 
 
 # =========================================================
-# EMBEDDING MODEL
+# MODEL
 # =========================================================
-model = SentenceTransformer(MODEL_NAME)
+def get_model():
+    global _model
+
+    if _model is None:
+        print("🔹 Loading SentenceTransformer model")
+        _model = SentenceTransformer(MODEL_NAME)
+
+    return _model
 
 
 # =========================================================
@@ -99,6 +148,12 @@ def search(query: str) -> List[Dict]:
     clean_query = preprocess_query(query)
     if not clean_query:
         return []
+
+    id_map, _ = load_metadata()
+    model = get_model()
+    embeddings = get_embeddings()
+    faiss_index = get_faiss_index()
+    bm25 = get_bm25()
 
     # ---- Vector Search ----
     q_vec = model.encode([clean_query], normalize_embeddings=True).astype("float32")
@@ -112,6 +167,7 @@ def search(query: str) -> List[Dict]:
     # ---- BM25 Search ----
     tokens = clean_query.lower().split()
     bm25_raw = bm25.get_scores(tokens)
+
     bm25_max = max(bm25_raw) if max(bm25_raw) > 0 else 1.0
     bm25_scores = bm25_raw / bm25_max
 
