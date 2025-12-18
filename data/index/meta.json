@@ -1,0 +1,8 @@
+{
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "vector_dim": 384,
+  "num_vectors": 377,
+  "input_file": "D:\\elvincentonino_codes\\Learning\\Intern_Assignment\\SHL_Recommendation_Engine\\data\\processed\\shl_assessments.json",
+  "input_hash": "d85986f2bfa936f4e5cabf25dfaf5abd27b117648339a5bf5b8b34def7271ad8",
+  "schema_version": "v2-canonical"
+}

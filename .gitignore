@@ -1,18 +1,14 @@
 # ================================
-# Secrets
-# ================================
-.env
-
-# ================================
-# Python
+# Python / Cache
 # ================================
 __pycache__/
 *.py[cod]
 
 # ================================
-# Virtual Environment
+# Virtual Env & Secrets
 # ================================
 venv/
+.env
 
 # ================================
 # OS / Editor
@@ -23,23 +19,10 @@ Thumbs.db
 .idea/
 
 # ================================
-# Ignore ALL data by default
+# Explicit exclusions
 # ================================
-data/*
-
-# ================================
-# Allow ONLY required data files
-# ================================
-!data/index/
-!data/index/id_map.json
-
-!data/processed/
-!data/processed/shl_assessments.json
-
-!data/train_test_data/
-
-# ================================
-# Junk / Experiments
-# ================================
+assessments_data.json
+config/
+data/raw/
 zzz_gold_in_trash/
 x_test.py
