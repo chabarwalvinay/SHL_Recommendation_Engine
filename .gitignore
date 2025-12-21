@@ -26,3 +26,5 @@ config/
 data/raw/
 zzz_gold_in_trash/
 x_test.py
+
+data/
